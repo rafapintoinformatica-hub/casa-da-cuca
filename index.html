@@ -90,12 +90,61 @@ function renderCart(){let entries=products.filter(p=>cart[p.id]);document.getEle
 if(!entries.length){document.getElementById('cart').innerHTML='<div class="cart-empty">Seu carrinho está vazio. Adicione uma cuca para começar.</div>'}
 else{document.getElementById('cart').innerHTML=entries.map(p=>{total+=p.price*cart[p.id];return `<div class="cart-item"><div><div class="item-title">${p.name}</div><div class="qty"><button type="button" onclick="change('${p.id}',-1)">−</button><span>${cart[p.id]}</span><button type="button" onclick="change('${p.id}',1)">+</button></div></div><div class="item-price">${money(p.price*cart[p.id])}</div></div>`}).join('')}
 document.getElementById('total').textContent=money(total)}
-document.getElementById('checkout-form').addEventListener('submit',e=>{e.preventDefault();if(!Object.keys(cart).length){showToast('Adicione pelo menos um produto ao carrinho.');return}
-const details={customer:Object.fromEntries(new FormData(e.target)),items:products.filter(p=>cart[p.id]).map(p=>({id:p.id,name:p.name,quantity:cart[p.id],unit_price_cents:p.price})),subtotal_cents:products.reduce((s,p)=>s+(cart[p.id]||0)*(p.price||0),0)};
-/* Integração real: enviar este pedido ao backend seguro que cria o link InfinitePay. */
-showToast('Layout pronto! Falta conectar o checkout seguro da InfinitePay.');
-console.log('Pedido de demonstração (não enviado):',details);
+document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+
+e.preventDefault();
+
+if (!Object.keys(cart).length) {
+showToast('Adicione pelo menos um produto ao carrinho.');
+return;
+}
+
+const details = {
+customer: Object.fromEntries(new FormData(e.target)),
+items: products
+.filter(p => cart[p.id])
+.map(p => ({
+id: p.id,
+name: p.name,
+quantity: cart[p.id],
+unit_price_cents: p.price
+})),
+subtotal_cents: products.reduce(
+(s, p) => s + (cart[p.id] || 0) * (p.price || 0),
+0
+)
+};
+
+try {
+
+showToast('Gerando pagamento...');
+
+const response = await fetch('/api/create-payment', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json'
+},
+body: JSON.stringify(details)
 });
+
+const data = await response.json();
+
+if (data.checkout_url) {
+window.location.href = data.checkout_url;
+return;
+}
+
+showToast('Erro ao gerar pagamento.');
+
+} catch (error) {
+
+console.error(error);
+
+showToast('Falha ao conectar com o pagamento.');
+}
+
+});
+
 renderProducts();renderCart();
 </script>
 </body></html>
